@@ -3,9 +3,13 @@
 Usage (Blender 5.0+):
     blender --background --factory-startup --python scripts/serene_grove.py -- --output //serene.png
 
-Make sure you execute the raw Python file. Running a copied PR diff (lines that begin
-with ``index 0000...``) will raise ``SyntaxError: invalid decimal literal`` because
-those diff headers are not valid Python.
+Avoid ``SyntaxError: invalid decimal literal``:
+    Always run the raw file, not a PR diff. If you only have the diff, restore the
+    clean script with:
+        git show HEAD:scripts/serene_grove.py > /tmp/serene_grove.py
+        blender --background --factory-startup --python /tmp/serene_grove.py -- --output //serene.png
+    Diff headers that start with ``index 0000...`` are not valid Python and will
+    always trigger that syntax error if you try to run them as a script.
 """
 
 import argparse
