@@ -9,7 +9,7 @@ import math
 import random
 
 import bpy
-from mathutils import Vector
+from mathutils import Vector, noise as mnoise
 
 
 def clear_scene() -> None:
@@ -102,22 +102,21 @@ def create_fill_light() -> bpy.types.Object:
 
 
 def create_ground() -> bpy.types.Object:
-    bpy.ops.mesh.primitive_plane_add(size=1.0, location=(0.0, 0.0, 0.0))
+    bpy.ops.mesh.primitive_grid_add(
+        size=60.0, x_subdivisions=140, y_subdivisions=140, location=(0.0, 0.0, 0.0)
+    )
     ground = bpy.context.active_object
     ground.name = "Ground"
-    ground.scale = (30.0, 30.0, 1.0)
 
-    subdiv = ground.modifiers.new(name="Subdivision", type="SUBSURF")
-    subdiv.levels = 4
-    subdiv.render_levels = 5
+    for vert in ground.data.vertices:
+        sample_coord = Vector((vert.co.x * 0.08, vert.co.y * 0.08, 0.0))
+        height = mnoise.multi_fractal(sample_coord, 1.6, 1.0, 4) * 2.4
+        slope = mnoise.noise(sample_coord + Vector((0.0, 0.0, 0.5))) * 0.6
+        vert.co.z = height + slope
 
-    disp_tex = bpy.data.textures.new("GroundDisplacement", type="CLOUDS")
-    disp_tex.noise_scale = 0.9
-    disp_tex.nabla = 0.03
-    displace = ground.modifiers.new(name="Displace", type="DISPLACE")
-    displace.texture = disp_tex
-    displace.strength = 3.2
-    displace.mid_level = 0.4
+    ground.data.update()
+
+    bpy.ops.object.shade_smooth()
 
     ground_material = bpy.data.materials.new(name="GroundMaterial")
     ground_material.use_nodes = True
@@ -127,25 +126,25 @@ def create_ground() -> bpy.types.Object:
     principled = nodes.get("Principled BSDF")
     tex_coord = nodes.new(type="ShaderNodeTexCoord")
     noise = nodes.new(type="ShaderNodeTexNoise")
-    noise.inputs[2].default_value = 5.0
-    noise.inputs[3].default_value = 0.6
+    noise.inputs["Scale"].default_value = 4.5
+    noise.inputs["Detail"].default_value = 2.2
 
     color_ramp = nodes.new(type="ShaderNodeValToRGB")
-    color_ramp.color_ramp.elements[0].position = 0.25
-    color_ramp.color_ramp.elements[0].color = (0.11, 0.25, 0.08, 1.0)
-    color_ramp.color_ramp.elements[1].position = 0.8
-    color_ramp.color_ramp.elements[1].color = (0.25, 0.35, 0.16, 1.0)
+    color_ramp.color_ramp.elements[0].position = 0.22
+    color_ramp.color_ramp.elements[0].color = (0.1, 0.22, 0.09, 1.0)
+    color_ramp.color_ramp.elements[1].position = 0.78
+    color_ramp.color_ramp.elements[1].color = (0.24, 0.34, 0.15, 1.0)
 
     bump = nodes.new(type="ShaderNodeBump")
-    bump.inputs[0].default_value = 0.2
+    bump.inputs["Strength"].default_value = 0.2
 
     links.new(tex_coord.outputs["Object"], noise.inputs["Vector"])
     links.new(noise.outputs["Fac"], color_ramp.inputs["Fac"])
     links.new(color_ramp.outputs["Color"], principled.inputs["Base Color"])
     links.new(noise.outputs["Fac"], bump.inputs["Height"])
     links.new(bump.outputs["Normal"], principled.inputs["Normal"])
-    principled.inputs["Roughness"].default_value = 0.8
-    principled.inputs["Sheen Tint"].default_value = 0.3
+    principled.inputs["Roughness"].default_value = 0.85
+    principled.inputs["Sheen Tint"].default_value = 0.35
 
     ground.data.materials.append(ground_material)
     return ground
@@ -298,7 +297,8 @@ def parse_args() -> argparse.Namespace:
         default="//serene_grove.png",
         help="Output path for the render. Uses Blender's // prefix for the blend file directory by default.",
     )
-    return parser.parse_args(args=bpy.app.driver_namespace.get("script_args", []))
+    driver_namespace = getattr(bpy.app, "driver_namespace", {})
+    return parser.parse_args(args=driver_namespace.get("script_args", []))
 
 
 def main() -> None:
