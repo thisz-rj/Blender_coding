@@ -1,7 +1,11 @@
 """Create a serene forest glade scene completely from Blender Python API.
 
-Run with:
-    blender -b -P scripts/serene_grove.py -- --output //serene.png
+Usage (Blender 5.0+):
+    blender --background --factory-startup --python scripts/serene_grove.py -- --output //serene.png
+
+Make sure you execute the raw Python file. Running a copied PR diff (lines that begin
+with ``index 0000...``) will raise ``SyntaxError: invalid decimal literal`` because
+those diff headers are not valid Python.
 """
 
 import argparse
